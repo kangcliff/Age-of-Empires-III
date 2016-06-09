@@ -1,0 +1,114 @@
+#define RSCL32(a,b,c,d)   0x ## c ## d, 0x ## a ## b
+#define LC(a,b,c,d)       #d, #c, #b, #a
+#define RSCS32(a)         a, 0
+
+16000  PiPL  DISCARDABLE
+BEGIN
+	1, /* First byte must always be 1 */
+	0L, /* kCurrentPiPL Version */
+	   16L, /* Property count */
+	"MIB8", /* '8BIM' */
+	"dnik", /* 'kind' PIKindProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	"FIB8", /* '8BIF' Photoshop Format plug-in */
+
+	"MIB8", /* '8BIM' */
+	"eman", /* 'name' PINameProperty */
+	0L, /* Index */
+	    8L, /* Length */
+	"\003DDT\0\0\0\0", 
+
+	"MIB8", /* '8BIM' */
+	"srev", /* 'vers' PIVersionProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	0X00010000L, /* (Major << 16) | Minor */
+
+	"MIB8", /* '8BIM' */
+	"4668", /* '8664' PIWin64X86CodeProperty */
+	0L, /* Index */
+	   12L, /* Length */
+	"PluginMain\0\0", 
+
+	"MIB8", /* '8BIM' */
+	"edom", /* 'mode' SupportedModes */
+	0L, /* Index */
+	    4L, /* Length */
+	0X0050, /* Supported modes */
+	0, /* Reserved */
+
+	"MIB8", /* '8BIM' */
+	"lbne", /* 'enbl' EnableInfoProperty */
+	0L, /* Index */
+	  132L, /* Length */
+	"in (PSHOP_ImageMode, GrayScaleMode, RGBMode) &&PSHOP_ImageDepth == 8 &&PSHOP_NumTrueChannels == 1 || PSHOP_NumTrueChannels == 4\0\0\0\0\0", 
+
+	"MIB8", /* '8BIM' */
+	"23sm", /* 'ms32' PlugInMaxSize */
+	0L, /* Index */
+	    8L, /* Length */
+	2147483647L, 
+	2147483647L, 
+
+	"MIB8", /* '8BIM' */
+	"zsxm", /* 'mxsz' PIFmtMaxSizeProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	32767, /* Max x */
+	32767, /* Max y */
+
+	"MIB8", /* '8BIM' */
+	"hcxm", /* 'mxch' PIFmtMaxChannelsProperty */
+	0L, /* Index */
+	   24L, /* Length */
+	0, 1, 0, 4, 
+	0, 0, 0, 0, 
+	0, 0, 0, 0, 
+	
+	"MIB8", /* '8BIM' */
+	"CTmf", /* 'fmTC' PIFormatFileTypeProperty */
+	0L, /* Index */
+	    8L, /* Length */
+	" TDD", 
+	"MIB8", 
+
+	"MIB8", /* '8BIM' */
+	"Ttff", /* 'fftT' PIFilteredTypesProperty */
+	0L, /* Index */
+	    8L, /* Length */
+	"F1B8", 
+	"    ", 
+
+	"MIB8", /* '8BIM' */
+	"xEdR", /* 'RdEx' PIReadExtProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	"DDT ", 
+
+	"MIB8", /* '8BIM' */
+	"xErW", /* 'WrEx' PIWriteExtProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	"DDT ", 
+
+	"MIB8", /* '8BIM' */
+	"Etff", /* 'fftE' PIFilteredExtProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	"DDT ", 
+
+	"MIB8", /* '8BIM' */
+	"ftmf", /* 'fmtf' PIFmtFlagsProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	0X00000038L, 
+
+	"MIB8", /* '8BIM' */
+	"pimf", /* 'fmip' PIFmtICCFlagsProperty */
+	0L, /* Index */
+	    4L, /* Length */
+	0000000000L, 
+
+END
+
