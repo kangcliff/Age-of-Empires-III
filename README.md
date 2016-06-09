@@ -1,5 +1,3 @@
-# Age of Empires III Modding Projects
-
 Photoshop DirectDraw Texture (DDT) Plug-in
 ----
 
