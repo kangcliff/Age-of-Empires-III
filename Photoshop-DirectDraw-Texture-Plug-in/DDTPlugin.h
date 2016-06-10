@@ -1,6 +1,3 @@
-#ifndef _DDT_PLUG_IN_H
-#define _DDT_PLUG_IN_H
-
 // Copyright (c) 2016 Cliff Kang
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,6 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //
 //
+
+#ifndef _DDT_PLUG_IN_H
+#define _DDT_PLUG_IN_H
 
 #include "DDT.h"
 #include <PIHandleSuite.h>
