@@ -1,4 +1,3 @@
-#include "DDTUI.h"
 // Copyright (c) 2016 Cliff Kang
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,6 +19,7 @@
 //
 //
 
+#include "DDTUI.h"
 #include <PIHandleSuite.h>
 
 FormatRecord *gFormatRecord = NULL;
