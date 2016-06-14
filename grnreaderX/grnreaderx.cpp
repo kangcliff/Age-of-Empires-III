@@ -316,7 +316,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 					<< vertex.BoneIndices[3] + 1 << "\n";
 			}
 
-			//delete[] vertices;
+			delete[] vertices;
 
 			if (mesh->PrimaryTopology->Indices16_count)
 			{
