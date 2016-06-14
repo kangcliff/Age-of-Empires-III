@@ -19,7 +19,7 @@ typedef DWORD (WINAPI *PFNGRANNYCONVERTFILETORAWPROC) (const char* src, const ch
 GrannyStack stack;
 
 const char * prog_title = "grnreaderX";
-const float max_ups = 1.0f / 0.0254f;
+const float max_upm = 1.0f / 0.0254f;
 const float max_right[] = { 1.0f, 0.0f, 0.0f };
 const float max_up[] = { 0.0f, 0.0f, 1.0f };
 const float max_back[] = { 0.0f, -1.0f, 0.0f };
@@ -240,7 +240,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		if (memcmp(art_info->RightVector, max_right, 12) != 0 ||
 			memcmp(art_info->UpVector, max_up, 12) != 0 ||
 			memcmp(art_info->BackVector, max_back, 12) != 0) {
-			(*GrannyComputeBasisConversion)(modelinfo, max_ups,
+			(*GrannyComputeBasisConversion)(modelinfo, max_upm,
 				art_info->Origin, max_right, max_up, max_back,
 				a, b, c);
 			(*GrannyTransformFile)(modelinfo, a, b, c, 2);
