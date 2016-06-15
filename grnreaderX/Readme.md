@@ -1,5 +1,6 @@
 New features from grnreader
 ----
+- loading invisible meshes (check FD Vertex Library)
 - importing bones
 - fixed faces
 - vertex weighing
