@@ -44,7 +44,7 @@ struct gmesh (
 	vertices,
 	bones,
 	material_indices,
-	face_group
+	face_groups
 )
 
 struct gvertex (
@@ -171,7 +171,7 @@ struct gimporter (
 	
 	fn create_mesh m si = (
 		local face_count = 0
-		for face_material_group in m.face_group do face_count = face_count + face_material_group.faces.count
+		for g in m.face_groups do face_count = face_count + g.faces.count
 		
 		local result = mesh name:m.name numverts:m.vertices.count numfaces:face_count
 		setNumTVerts result m.vertices.count
@@ -189,13 +189,13 @@ struct gimporter (
 		result.material = parent_material
 			
 		local face_index = 1
-		for face_material_group in m.face_group do
+		for g in m.face_groups do
 		( 
-			for face in face_material_group.faces do
+			for face in g.faces do
 			(
 				setFace result face_index face
-				setFaceMatID result face_index face_material_group.mat_id
-				face_index = face_index + 1
+				setFaceMatID result face_index g.mat_id
+				face_index += 1
 			)
 		)
 		
@@ -492,8 +492,8 @@ fn vw w1 w2 w3 w4 i1 i2 i3 i4 = (
 -- face group
 fn fg i = (
 	importer.imp_face_group_id += 1
-	append importer.imp_mesh.face_group (gface_group i #())
-	importer.imp_faces = importer.imp_mesh.face_group[importer.imp_face_group_id].faces
+	append importer.imp_mesh.face_groups (gface_group i #())
+	importer.imp_faces = importer.imp_mesh.face_groups[importer.imp_face_group_id].faces
 )
 
 -- face
