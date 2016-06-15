@@ -8,5 +8,5 @@ New features from the grnreader
 Known issues
 ----
 
-- animations with different coord sys from the model cannot be loaded properly
+- animations with different coord sys from the target model cannot be loaded properly on it
 
