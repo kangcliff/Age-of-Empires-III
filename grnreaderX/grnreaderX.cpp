@@ -20,6 +20,8 @@ GrannyStack stack;
 
 const char * prog_title = "grnreaderX";
 const float max_upm = 1.0f / 0.0254f;
+const int upm_raw = 0x3f1d7af6;
+const float max_origin[] = { 0.0f, 0.0f, 0.0f };
 const float max_right[] = { 1.0f, 0.0f, 0.0f };
 const float max_up[] = { 0.0f, 0.0f, 1.0f };
 const float max_back[] = { 0.0f, -1.0f, 0.0f };
@@ -197,7 +199,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	if (!CopyFileA(importer_script.c_str(), script.c_str(), FALSE))
 		MessageBoxA(GetActiveWindow(), "Couldn't copy 'grnreaderX.ms'", prog_title, MB_ICONERROR | MB_OK);
 
-	ss << "--- prepare for import ---\nimporter.prepare_import()";
+	ss << "\n\n--- prepare for import ---\nimporter.prepare_import()";
 
 	for (int arg = 1; arg < __argc; ++arg) {
 		std::vector<fd_pwngt34332_vertex *> vertices_ptrs;
@@ -208,12 +210,14 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		if (!modelfile)
 		{
 			MessageBoxA(GetActiveWindow(), "Couldn't read GR2 file - maybe it's not the right name, or not in the right folder.", prog_title, MB_ICONERROR | MB_OK);
+			DeleteFileA(script.c_str());
 			exit(-2);
 		}
 		modelinfo = (*GrannyGetFileInfo)(modelfile);
 		if (!modelfile)
 		{
 			MessageBoxA(GetActiveWindow(), "Couldn't get GR2 FileInfo. I have no idea why.", prog_title, MB_ICONERROR | MB_OK);
+			DeleteFileA(script.c_str());
 			exit(-3);
 		}
 
@@ -227,7 +231,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 				vertices = new fd_pwngt34332_vertex[vertices_count];
 				vertices_ptrs.push_back(vertices);
 				if (!FDGetVertices(vertex_data->Vertices, vertices)) {
-					MessageBoxA(GetActiveWindow(), "Couldn't convert FD Vertices.", prog_title, MB_ICONERROR | MB_OK);
+					MessageBoxA(GetActiveWindow(), "Couldn't convert FD Vertices. Either the magic value mismatches or the data is corrupted.", prog_title, MB_ICONERROR | MB_OK);
+					DeleteFileA(script.c_str());
 					exit(-4);
 				}
 				vertex_data->Vertices = vertices;
@@ -237,11 +242,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		}
 		
 		art_info = modelinfo->ArtToolInfo;
+		const float * upm = (const float *)&upm_raw;
 		if (memcmp(art_info->RightVector, max_right, 12) != 0 ||
 			memcmp(art_info->UpVector, max_up, 12) != 0 ||
 			memcmp(art_info->BackVector, max_back, 12) != 0) {
-			(*GrannyComputeBasisConversion)(modelinfo, max_upm,
-				art_info->Origin, max_right, max_up, max_back,
+			(*GrannyComputeBasisConversion)(modelinfo, *upm,
+				max_origin, max_right, max_up, max_back,
 				a, b, c);
 			(*GrannyTransformFile)(modelinfo, a, b, c, 2);
 		}
@@ -284,22 +290,22 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		for (int i = 0; i < modelinfo->Meshes_count; ++i) {
 			t_Mesh * mesh = modelinfo->Meshes[i];
 			t_VertexData * vertex_data = mesh->PrimaryVertexData;
-			fd_pwngt34332_vertex * vertices;
+			t_Vertex_PWNT3432 * vertices;
 			int vertices_count;
 			bool vertex_weights = true;
 
 			ss << "m \"" << mesh->Name << "\"\n";
 
 			vertices_count = vertex_data->Vertices_count;
-			vertices = new fd_pwngt34332_vertex[vertices_count];
-			(*GrannyCopyMeshVertices)(mesh, GrannyPWNGT34332VertexType, vertices);
+			vertices = new t_Vertex_PWNT3432[vertices_count];
+			(*GrannyCopyMeshVertices)(mesh, GrannyPWNT3432VertexType, vertices);
 
 			if ((*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNT332VertexType) ||
 				(*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNGT3332VertexType))
 				vertex_weights = false;
 
 			for (int v = 0; v < vertices_count; ++v) {
-				fd_pwngt34332_vertex& vertex = vertices[v];
+				t_Vertex_PWNT3432& vertex = vertices[v];
 				ss << "v " << vertex.Position[0] << " " << vertex.Position[1] << " " << vertex.Position[2] << "\n"
 					<< "vn " << vertex.Normal[0] << " " << vertex.Normal[1] << " " << vertex.Normal[2] << "\n"
 					<< "vt " << vertex.TextureCoordinates0[0] << " " << 1 - vertex.TextureCoordinates0[1] << "\n";
@@ -369,8 +375,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 				ss << "mb \"" << mesh->BoneBindings[b].BoneName << "\"\n";
 		}
 
-		if (modelinfo->Animations &&
-			modelinfo->Animations_count) {
+		if (modelinfo->Animations_count) {
 			t_Animations * anim = modelinfo->Animations[0];
 			float frames = anim->Duration / anim->TimeStep,
 				fps = 1.0f / anim->TimeStep;
@@ -378,8 +383,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			ss << "a " << frames << " "
 				<< fps << "\n";
 
-			if (modelinfo->Animations[0]->TrackGroups &&
-				modelinfo->Animations[0]->TrackGroups_count) {
+			if (modelinfo->Animations[0]->TrackGroups_count) {
 				t_TrackGroups * group = modelinfo->Animations[0]->TrackGroups[0];
 				for (int i = 0; i < group->TransformTracks_count; ++i) {
 					t_TransformTracks& track = group->TransformTracks[i];
