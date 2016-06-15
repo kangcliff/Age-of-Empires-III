@@ -2,7 +2,7 @@ New features from the grnreader
 ----
 
 - importing bones
-- vertex weighting
+- vertex weighing
 - loading animations
 
 How to use
