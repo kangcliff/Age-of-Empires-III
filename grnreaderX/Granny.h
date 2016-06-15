@@ -21,7 +21,7 @@ typedef float granny_real32;
 struct granny_transform { 
 	granny_uint32 Dimensions;
 	granny_real32 Origin[3];
-	granny_real32 Quat[4];
+	granny_real32 Rotation[4];
 	granny_real32 Scale[3][3];
 };
 
