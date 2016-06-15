@@ -353,7 +353,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 						if (!material->Maps_count)
 							continue;
 
-						if (mesh->MaterialBindings[m].Material == material)
+						if (mesh->MaterialBindings[mb].Material == material)
 						{
 							ss << "mm " << id + 1 << "\n";
 							break;
