@@ -300,7 +300,7 @@ struct gimporter (
 		skeleton = gskeleton #()
 		materials = #()
 		meshes = #()
-		animation = undefined
+		animations = #()
 		imp_mat_id = 0
 		imp_mesh_id = 0
 		
