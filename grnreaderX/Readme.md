@@ -17,5 +17,5 @@ Copy 'grnreaderX.ms' and 'granny2.dll' (from your AoE3 path) to the same directo
 
 How to use
 ----
-drop a .gr2 file directly on 'grnreaderX.exe' or execute it from cmd:
+Drop GR2 files directly on 'grnreaderX.exe' or execute it from cmd:
 > grnreaderX model.gr2 animation.gr2
