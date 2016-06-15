@@ -388,7 +388,7 @@ struct gimporter (
 			)
 			if mat_imported < scene_materials.count then
 			(
-				messageBox (((scene_materials.count - mat_imported) as string) + " materials of the cannot be imported to Material Editor") title:importer_title 
+				messageBox (((scene_materials.count - mat_imported) as string) + " materials cannot be imported to Material Editor") title:importer_title 
 			)
 			
 			for i = 1 to models.count do create_model i
