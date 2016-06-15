@@ -1,8 +1,8 @@
-#include <stdio.h>
-#include <assert.h>
-#include <math.h>
-#include <stddef.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <sstream>
 #include <fstream>
 //#include <string>
@@ -11,7 +11,6 @@
 //#include "GR2Format.h"
 #include "Granny.h"
 #include "FD.h"
-
 
 typedef DWORD (WINAPI *PFNGRANNYCONVERTFILETORAWPROC) (const char* src, const char *dst); 
 #pragma warning(disable:4996) // deprecated functions
@@ -33,8 +32,6 @@ void __cdecl log(int a, int b, char* msg)
 	MessageBoxA(GetActiveWindow(), text, prog_title, MB_ICONWARNING | MB_OK);
 }
 GrannyLogger logger = { &log, &log };
-
-//void dumpStruct(void* data, int n);
 
 void InverseMatrix(const float * data, float * invOut)
 {
@@ -172,7 +169,6 @@ void InverseMatrix(const float * data, float * invOut)
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine, int nCmdShow) {
-
 	if (__argc < 2)
 	{
 		MessageBoxA(GetActiveWindow(), "Please run as something like 'HC_cathedral.gr2'.", prog_title, MB_ICONERROR | MB_OK);
@@ -198,8 +194,6 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	if (!CopyFileA(importer_script.c_str(), script.c_str(), FALSE))
 		MessageBoxA(GetActiveWindow(), "Couldn't copy 'grnreaderX.ms'", prog_title, MB_ICONERROR | MB_OK);
-
-	ss << "\n\n--- prepare for import ---\nimporter.prepare_import()";
 
 	for (int arg = 1; arg < __argc; ++arg) {
 		std::vector<fd_pwngt34332_vertex *> vertices_ptrs;
@@ -243,33 +237,14 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		
 		art_info = modelinfo->ArtToolInfo;
 		const float * upm = (const float *)&upm_raw;
-		if (memcmp(art_info->RightVector, max_right, 12) != 0 ||
-			memcmp(art_info->UpVector, max_up, 12) != 0 ||
-			memcmp(art_info->BackVector, max_back, 12) != 0) {
-			(*GrannyComputeBasisConversion)(modelinfo, *upm,
-				max_origin, max_right, max_up, max_back,
-				a, b, c);
-			(*GrannyTransformFile)(modelinfo, a, b, c, 2);
-		}
+		(*GrannyComputeBasisConversion)(modelinfo, *upm,
+			max_origin, max_right, max_up, max_back,
+			a, b, c);
+		(*GrannyTransformFile)(modelinfo, a, b, c, 2);
 
 		filename = file;
 		filename = filename.substr(filename.find_last_of('\\') + 1, filename.length());
 		ss << "\n\n--- " << filename.c_str() << " ---\n\n";
-
-		if (modelinfo->Skeletons &&
-			modelinfo->Skeletons_count) {
-			t_Skeletons * skeleton = modelinfo->Skeletons[0];
-			for (int i = 0; i < skeleton->Bones_count; ++i) {
-				t_Bones& bone = skeleton->Bones[i];
-				float mat[16];
-				InverseMatrix(bone.InverseWorldTransform, mat);
-				ss << "b \"" << bone.Name << "\" " << bone.ParentIndex + 1 << " "
-					<< mat[0] << " " << mat[1] << " " << mat[2] << " "
-					<< mat[4] << " " << mat[5] << " " << mat[6] << " "
-					<< mat[8] << " " << mat[9] << " " << mat[10] << " "
-					<< mat[12] << " " << mat[13] << " " << mat[14] << "\n";
-			}
-		}
 
 		for (int i = 0; i < modelinfo->Materials_count; ++i) {
 			t_Material * material = modelinfo->Materials[i];
@@ -287,104 +262,123 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			}
 		}
 
-		for (int i = 0; i < modelinfo->Meshes_count; ++i) {
-			t_Mesh * mesh = modelinfo->Meshes[i];
-			t_VertexData * vertex_data = mesh->PrimaryVertexData;
-			t_Vertex_PWNT3432 * vertices;
-			int vertices_count;
-			bool vertex_weights = true;
+		for (int m = 0; m < modelinfo->Models_count; ++m) {
+			t_Models * model = modelinfo->Models[m];
+			t_Skeletons * skeleton = model->Skeleton;
 
-			ss << "m \"" << mesh->Name << "\"\n";
+			ss << "md \"" << model->Name << "\"\n";
+			for (int i = 0; i < skeleton->Bones_count; ++i) {
+				t_Bones& bone = skeleton->Bones[i];
+				float mat[16];
+				InverseMatrix(bone.InverseWorldTransform, mat);
 
-			vertices_count = vertex_data->Vertices_count;
-			vertices = new t_Vertex_PWNT3432[vertices_count];
-			(*GrannyCopyMeshVertices)(mesh, GrannyPWNT3432VertexType, vertices);
-
-			if ((*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNT332VertexType) ||
-				(*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNGT3332VertexType))
-				vertex_weights = false;
-
-			for (int v = 0; v < vertices_count; ++v) {
-				t_Vertex_PWNT3432& vertex = vertices[v];
-				ss << "v " << vertex.Position[0] << " " << vertex.Position[1] << " " << vertex.Position[2] << "\n"
-					<< "vn " << vertex.Normal[0] << " " << vertex.Normal[1] << " " << vertex.Normal[2] << "\n"
-					<< "vt " << vertex.TextureCoordinates0[0] << " " << 1 - vertex.TextureCoordinates0[1] << "\n";
-
-				if (vertex_weights)
-					ss << "vw "
-					<< (double)vertex.BoneWeights[0] / 255.0f << " "
-					<< (double)vertex.BoneWeights[1] / 255.0f << " "
-					<< (double)vertex.BoneWeights[2] / 255.0f << " "
-					<< (double)vertex.BoneWeights[3] / 255.0f << " "
-					<< vertex.BoneIndices[0] + 1 << " "
-					<< vertex.BoneIndices[1] + 1 << " "
-					<< vertex.BoneIndices[2] + 1 << " "
-					<< vertex.BoneIndices[3] + 1 << "\n";
+				ss << "b \"" << bone.Name << "\" " << bone.ParentIndex + 1 << " "
+					<< mat[0] << " " << mat[1] << " " << mat[2] << " "
+					<< mat[4] << " " << mat[5] << " " << mat[6] << " "
+					<< mat[8] << " " << mat[9] << " " << mat[10] << " "
+					<< mat[12] << " " << mat[13] << " " << mat[14] << "\n";
 			}
 
-			delete[] vertices;
+			for (int i = 0; i < model->MeshBindings_count; ++i) {
+				t_Mesh * mesh = model->MeshBindings[i].Mesh;
+				t_VertexData * vertex_data = mesh->PrimaryVertexData;
+				t_Vertex_PWNT3432 * vertices;
+				int vertices_count;
+				bool vertex_weights = true;
 
-			if (mesh->PrimaryTopology->Indices16_count)
-			{
-				t_Indices16 *indices16 = mesh->PrimaryTopology->Indices16;
-				for (int g = 0; g < mesh->PrimaryTopology->Groups_count; ++g)
-				{
-					t_Groups& group = mesh->PrimaryTopology->Groups[g];
-					ss << "fm " << group.MaterialIndex + 1 << "\n";
-					for (int t = group.TriFirst; t < group.TriFirst + group.TriCount; ++t)
-						ss << "f " << indices16[t * 3 + 0].Int16 + 1 << " " <<
-						indices16[t * 3 + 1].Int16 + 1 << " " <<
-						indices16[t * 3 + 2].Int16 + 1 << "\n";
+				ss << "m \"" << mesh->Name << "\"\n";
 
+				vertices_count = vertex_data->Vertices_count;
+				vertices = new t_Vertex_PWNT3432[vertices_count];
+				(*GrannyCopyMeshVertices)(mesh, GrannyPWNT3432VertexType, vertices);
+
+				if ((*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNT332VertexType) ||
+					(*_GrannyDataTypesAreEqual)((int)vertex_data->Vertex_type, GrannyPNGT3332VertexType))
+					vertex_weights = false;
+
+				for (int v = 0; v < vertices_count; ++v) {
+					t_Vertex_PWNT3432& vertex = vertices[v];
+					ss << "v " << vertex.Position[0] << " " << vertex.Position[1] << " " << vertex.Position[2] << "\n"
+						<< "vn " << vertex.Normal[0] << " " << vertex.Normal[1] << " " << vertex.Normal[2] << "\n"
+						<< "vt " << vertex.TextureCoordinates0[0] << " " << 1 - vertex.TextureCoordinates0[1] << "\n";
+
+					if (vertex_weights)
+						ss << "vw "
+						<< (double)vertex.BoneWeights[0] / 255.0f << " "
+						<< (double)vertex.BoneWeights[1] / 255.0f << " "
+						<< (double)vertex.BoneWeights[2] / 255.0f << " "
+						<< (double)vertex.BoneWeights[3] / 255.0f << " "
+						<< vertex.BoneIndices[0] + 1 << " "
+						<< vertex.BoneIndices[1] + 1 << " "
+						<< vertex.BoneIndices[2] + 1 << " "
+						<< vertex.BoneIndices[3] + 1 << "\n";
 				}
-			}
-			else
-			{
-				t_Indices *indices = mesh->PrimaryTopology->Indices;
-				for (int g = 0; g < mesh->PrimaryTopology->Groups_count; ++g)
-				{
-					t_Groups& group = mesh->PrimaryTopology->Groups[g];
-					ss << "fm " << group.MaterialIndex + 1 << "\n";
-					for (int t = group.TriFirst; t < group.TriFirst + group.TriCount; ++t)
-						ss << "f " << indices[t * 3 + 0].Int32 + 1 << " " <<
-						indices[t * 3 + 1].Int32 + 1 << " " <<
-						indices[t * 3 + 2].Int32 + 1 << "\n";
-				}
-			}
 
-			for (int mb = 0; mb < mesh->MaterialBindings_count; ++mb)
-			{
-				int id = 0;
-				for (int m = 0; m < modelinfo->Materials_count; ++m)
-				{
-					t_Material * material = modelinfo->Materials[m];
-					if (!material->Maps_count)
-						continue;
+				delete[] vertices;
 
-					if (mesh->MaterialBindings[m].Material == material)
+				if (mesh->PrimaryTopology->Indices16_count)
+				{
+					t_Indices16 *indices16 = mesh->PrimaryTopology->Indices16;
+					for (int g = 0; g < mesh->PrimaryTopology->Groups_count; ++g)
 					{
-						ss << "mm " << id + 1 << "\n";
-						break;
+						t_Groups& group = mesh->PrimaryTopology->Groups[g];
+						ss << "fg " << group.MaterialIndex + 1 << "\n";
+						for (int t = group.TriFirst; t < group.TriFirst + group.TriCount; ++t)
+							ss << "f " << indices16[t * 3 + 0].Int16 + 1 << " " <<
+							indices16[t * 3 + 1].Int16 + 1 << " " <<
+							indices16[t * 3 + 2].Int16 + 1 << "\n";
+
 					}
-
-					++id;
 				}
-			}
+				else
+				{
+					t_Indices *indices = mesh->PrimaryTopology->Indices;
+					for (int g = 0; g < mesh->PrimaryTopology->Groups_count; ++g)
+					{
+						t_Groups& group = mesh->PrimaryTopology->Groups[g];
+						ss << "fg " << group.MaterialIndex + 1 << "\n";
+						for (int t = group.TriFirst; t < group.TriFirst + group.TriCount; ++t)
+							ss << "f " << indices[t * 3 + 0].Int32 + 1 << " " <<
+							indices[t * 3 + 1].Int32 + 1 << " " <<
+							indices[t * 3 + 2].Int32 + 1 << "\n";
+					}
+				}
 
-			for (int b = 0; b < mesh->BoneBindings_count; ++b)
-				ss << "mb \"" << mesh->BoneBindings[b].BoneName << "\"\n";
+				for (int mb = 0; mb < mesh->MaterialBindings_count; ++mb)
+				{
+					int id = 0;
+					for (int m = 0; m < modelinfo->Materials_count; ++m)
+					{
+						t_Material * material = modelinfo->Materials[m];
+						if (!material->Maps_count)
+							continue;
+
+						if (mesh->MaterialBindings[m].Material == material)
+						{
+							ss << "mm " << id + 1 << "\n";
+							break;
+						}
+
+						++id;
+					}
+				}
+
+				for (int b = 0; b < mesh->BoneBindings_count; ++b)
+					ss << "mb \"" << mesh->BoneBindings[b].BoneName << "\"\n";
+			}
 		}
 
-		if (modelinfo->Animations_count) {
-			t_Animations * anim = modelinfo->Animations[0];
+		for (int a = 0; a < modelinfo->Animations_count; ++a) {
+			t_Animations * anim = modelinfo->Animations[a];
 			float frames = anim->Duration / anim->TimeStep,
 				fps = 1.0f / anim->TimeStep;
 
 			ss << "a " << frames << " "
 				<< fps << "\n";
 
-			if (modelinfo->Animations[0]->TrackGroups_count) {
-				t_TrackGroups * group = modelinfo->Animations[0]->TrackGroups[0];
+			for (int t = 0; t < anim->TrackGroups_count; ++t) {
+				t_TrackGroups * group = anim->TrackGroups[t];
+				ss << "cg \"" << group->Name << "\"\n";
 				for (int i = 0; i < group->TransformTracks_count; ++i) {
 					t_TransformTracks& track = group->TransformTracks[i];
 					ss << "c \"" << track.Name << "\"\n";
