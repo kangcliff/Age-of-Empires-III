@@ -43,11 +43,12 @@ struct t_Vertex_PNT332
 	granny_real32 Normal[3];
 	granny_real32 TextureCoordinates0[2];
 };
-struct t_Vertex_PNGT3332
+struct t_Vertex_PWNT3432
 {
 	granny_real32 Position[3];
+	granny_uint8 BoneWeights[4];
+	granny_uint8 BoneIndices[4];
 	granny_real32 Normal[3];
-	granny_real32 Tangent[3];
 	granny_real32 TextureCoordinates0[2];
 };
 
