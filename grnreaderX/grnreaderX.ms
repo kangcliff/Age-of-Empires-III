@@ -103,8 +103,6 @@ struct gimporter (
 	scene_skeletons,
 	scene_materials,
 	
-	warning,
-	
 	imp_mat_id,
 	imp_mat,
 	imp_model_id,
@@ -359,8 +357,8 @@ struct gimporter (
 		local ret = true
 		local group_objs = #()
 		
-		--try
-		--(
+		try
+		(
 			local mat_id = 0
 			local meditmat_id = 1
 			local mat_imported = 0
@@ -398,12 +396,12 @@ struct gimporter (
 			for a in animations do create_animation a
 
 			clean_up()
-		--)
-		--catch
-		--(
-		--	messageBox "Import Failed!" title:importer_title
-		--	ret = false
-		--)
+		)
+		catch
+		(
+			messageBox "Import Failed!" title:importer_title
+			ret = false
+		)
 	)
 	
 )
