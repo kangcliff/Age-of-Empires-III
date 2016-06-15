@@ -1,4 +1,4 @@
-New features from the grnreader
+New features from grnreader
 ----
 - importing bones
 - vertex weighing
