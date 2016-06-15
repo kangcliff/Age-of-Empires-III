@@ -7,7 +7,7 @@ New features from the grnreader
 
 How to use
 ----
--drop a .gr2 file directly on grnreaderX.exe or execute it from cmd:
+drop a .gr2 file directly on grnreaderX.exe or execute it from cmd:
 > grnreaderX model.gr2 animation.gr2
 
 Known issues
