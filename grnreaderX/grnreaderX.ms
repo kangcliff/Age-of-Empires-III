@@ -23,6 +23,12 @@
 
 -- import structure definitions
 
+struct gmodel (
+	name,
+	skeleton,
+	meshes
+)
+
 struct gskeleton (
 	bones
 )
@@ -33,19 +39,12 @@ struct gbone (
 	transform
 )
 
-struct gmaterial (
-	name,
-	diffuse,
-	opacity,
-	bump
-)
-
 struct gmesh (
 	name,
 	vertices,
 	bones,
 	material_indices,
-	face_material_groups
+	face_group
 )
 
 struct gvertex (
@@ -56,14 +55,26 @@ struct gvertex (
 	weights
 )
 
-struct gface_material_group (
+struct gface_group (
 	mat_id,
 	faces
+)
+
+struct gmaterial (
+	name,
+	diffuse,
+	opacity,
+	bump
 )
 
 struct ganimation (
 	frame_count,
 	fps,
+	controller_groups
+)
+
+struct gcontroller_group (
+	name,
 	controllers
 )
 
@@ -85,16 +96,19 @@ importer_bone_size = 0.05
 
 struct gimporter (
 	-- import data
-	skeleton,
 	materials,
-	meshes,
+	models,
 	animations,
 	
-	scene_skeleton,
+	scene_skeletons,
 	scene_materials,
+	
+	warning,
 	
 	imp_mat_id,
 	imp_mat,
+	imp_model_id,
+	imp_model,
 	imp_mesh_id,
 	imp_mesh,
 	imp_vertex_id,
@@ -102,6 +116,10 @@ struct gimporter (
 	imp_face_group_id,
 	imp_faces,
 	imp_face_id,
+	imp_anim_id,
+	imp_anim,
+	imp_ctrl_group_id,
+	imp_ctrl_group,
 	imp_ctrl_id,
 	imp_ctrl,
 	
@@ -117,12 +135,21 @@ struct gimporter (
 	),
 	
 	-- scene creation functions
-	fn create_bone b = (
+	fn create_material m = (
+		local result = StandardMaterial()
+		result.name = m.name
+		if m.diffuse != undefined then result.diffuseMap = bitmaptexture filename: m.diffuse
+		if m.opacity != undefined then result.opacityMap = bitmaptexture filename: m.opacity
+		if m.bump != undefined then result.bumpMap = bitmaptexture filename: m.bump
+		result
+	),
+	
+	fn create_bone b si = (
 		local result
 		local bone_zaxis = [0, 1, 0]
 		
 		if b.parent_index == 0 then result = BoneSys.createBone b.transform.pos b.transform.pos bone_zaxis
-		else result = BoneSys.createBone b.transform.pos scene_skeleton.bones[b.parent_index].transform.pos bone_zaxis
+		else result = BoneSys.createBone b.transform.pos scene_skeletons[si].bones[b.parent_index].transform.pos bone_zaxis
 		
 		result.name = b.name
 		
@@ -140,22 +167,13 @@ struct gimporter (
 		result.width = importer_bone_size
 		result.height = importer_bone_size
 		
-		if b.parent_index > 0 then result.parent = scene_skeleton.bones[b.parent_index]
+		if b.parent_index > 0 then result.parent = scene_skeletons[si].bones[b.parent_index]
 		result
 	),
 	
-	fn create_material m = (
-		local result = StandardMaterial()
-		result.name = m.name
-		if m.diffuse != undefined then result.diffuseMap = bitmaptexture filename: m.diffuse
-		if m.opacity != undefined then result.opacityMap = bitmaptexture filename: m.opacity
-		if m.bump != undefined then result.bumpMap = bitmaptexture filename: m.bump
-		result
-	),
-	
-	fn create_mesh m = (
+	fn create_mesh m si = (
 		local face_count = 0
-		for face_material_group in m.face_material_groups do face_count = face_count + face_material_group.faces.count
+		for face_material_group in m.face_group do face_count = face_count + face_material_group.faces.count
 		
 		local result = mesh name:m.name numverts:m.vertices.count numfaces:face_count
 		setNumTVerts result m.vertices.count
@@ -173,7 +191,7 @@ struct gimporter (
 		result.material = parent_material
 			
 		local face_index = 1
-		for face_material_group in m.face_material_groups do
+		for face_material_group in m.face_group do
 		( 
 			for face in face_material_group.faces do
 			(
@@ -206,7 +224,7 @@ struct gimporter (
 		
 		for i in m.bones do
 		(
-			local b = find_bone i scene_skeleton.bones
+			local b = find_bone i scene_skeletons[si].bones
 			if b != undefined then skinOps.addBone mod_skin b 1
 		)
 		disableSceneRedraw()
@@ -240,71 +258,96 @@ struct gimporter (
 		)
 		enableSceneRedraw()
 		result
+	),	
+	
+	fn create_model i = (
+		local model = models[i]
+		local result
+		local objs = #()
+		
+		scene_skeletons[i] = gskeleton #()
+		for b in model.skeleton.bones do
+		(
+			local scene_bone = create_bone b i
+			append scene_skeletons[i].bones scene_bone
+			append objs scene_bone
+			
+		)
+		
+		for m in model.meshes do append objs (create_mesh m i)
+		
+		result = group objs
+		result.name = model.name
 	),
 	
 	fn create_animation a = (
 		frameRate = a.fps
-		local anim_end = a.frame_count as time
-		if animationRange.end < anim_end then animationRange = interval 0f anim_end
-		local objs = objects
-		if scene_skeleton.bones.count > 0 then objs = scene_skeleton.bones
-		for c in a.controllers do
+		animationRange = interval 0f a.frame_count
+		for g in a.controller_groups do
 		(
-			local b = find_bone c.name objs
-			if b != undefined then
+			local objs = objects
+			for m = 1 to models.count do 
 			(
-				if c.position_keys.count > 0 then
+				if g.name == models[m].name then objs = scene_skeletons[m].bones
+			)
+			for c in g.controllers do
+			(
+				local b = find_bone c.name objs
+				if b != undefined then
 				(
-					local pos_ctrl = bezier_position()
-					b.pos.controller = pos_ctrl
-					
-					for k in c.position_keys do
+					if c.position_keys.count > 0 then
 					(
-						local pos_key = addNewKey pos_ctrl k.frame
-						pos_key.inTangentType = #slow
-						pos_key.outTangentType = #slow
-						pos_key.value = k.value
+						local pos_ctrl = bezier_position()
+						b.pos.controller = pos_ctrl
+						
+						for k in c.position_keys do
+						(
+							local pos_key = addNewKey pos_ctrl k.frame
+							pos_key.inTangentType = #slow
+							pos_key.outTangentType = #slow
+							pos_key.value = k.value
+						)
 					)
-				)
-				
-				if c.rotation_keys.count > 0 then
-				(
-					local rot_ctrl = bezier_rotation()
-					b.rotation.controller = rot_ctrl
 					
-					for k in c.rotation_keys do
+					if c.rotation_keys.count > 0 then
 					(
-						local rot_key = addNewKey rot_ctrl k.frame
-						rot_key.value = k.value
+						local rot_ctrl = bezier_rotation()
+						b.rotation.controller = rot_ctrl
+						
+						for k in c.rotation_keys do
+						(
+							local rot_key = addNewKey rot_ctrl k.frame
+							rot_key.value = k.value
+						)
 					)
-				)
 
-				if c.scale_keys.count > 0 then
-				(
-					local scale_ctrl = bezier_scale()
-					b.scale.controller = scale_ctrl
-					
-					for k in c.scale_keys do
+					if c.scale_keys.count > 0 then
 					(
-						local scale_key = addNewKey scale_ctrl k.frame
-						scale_key.inTangentType = #slow
-						scale_key.outTangentType = #slow					
-						scale_key.value = k.value
+						local scale_ctrl = bezier_scale()
+						b.scale.controller = scale_ctrl
+						
+						for k in c.scale_keys do
+						(
+							local scale_key = addNewKey scale_ctrl k.frame
+							scale_key.inTangentType = #slow
+							scale_key.outTangentType = #slow					
+							scale_key.value = k.value
+						)
 					)
-				)
-			)		
-		)	
+				)		
+			)
+		)
 	),
 
 	fn clean_up = (
-		skeleton = gskeleton #()
+		models = #()
 		materials = #()
-		meshes = #()
 		animations = #()
+		imp_model_id = 0
 		imp_mat_id = 0
-		imp_mesh_id = 0
+		imp_anim_id = 0
 		
-		scene_skeleton = gskeleton #()
+		scene_skeletons = #()
 		scene_materials = #()
 	),
 	
@@ -316,28 +359,18 @@ struct gimporter (
 		local ret = true
 		local group_objs = #()
 		
-		try
-		(
-			if skeleton.bones.count > 0 then
-			(
-				for b in skeleton.bones do
-				(
-					local result = create_bone b
-					append scene_skeleton.bones result
-					append group_objs result
-				)
-			)
-
+		--try
+		--(
 			local mat_id = 0
 			local meditmat_id = 1
-			local mat_added = 0
+			local mat_imported = 0
 			for i = 1 to materials.count do
 			(
 				append scene_materials (create_material materials[i])
-				local added = false
+				local imported = false
 				for m = meditmat_id to 24 do
 				(
-					if not added then
+					if not imported then
 					(
 						if classof meditmaterials[m] == StandardMaterial then
 						(
@@ -348,31 +381,29 @@ struct gimporter (
 								meditmaterials[m].showInViewport = on
 								scene_materials[mat_id] = meditmaterials[m]
 								mmeditmat_id = m + 1
-								added = true
-								mat_added += 1
+								imported = true
+								mat_imported += 1
 							)
 						)
 					)
 				)
 			)
-			if material_added < scene_materials.count then
+			if mat_imported < scene_materials.count then
 			(
-				messageBox ("Material Editor full: " + ((scene_materials.count - material_added) as string ) + " out of " + (scene_materials.count as string) + " materials of the import file cannot be added") title:importer_title 
-			)			
+				messageBox (((scene_materials.count - mat_imported) as string) + " materials of the cannot be imported to Material Editor") title:importer_title 
+			)
 			
-			for m in meshes do append group_objs (create_mesh m)
-			
-			group group_objs
+			for i = 1 to models.count do create_model i
 			
 			for a in animations do create_animation a
 
 			clean_up()
-		)
-		catch
-		(
-			messageBox "Import Failed!" title:importer_title
-			ret = false
-		)
+		--)
+		--catch
+		--(
+		--	messageBox "Import Failed!" title:importer_title
+		--	ret = false
+		--)
 	)
 	
 )
@@ -382,11 +413,6 @@ importer = gimporter()
 importer.init()
 
 -- file import function definitions
-
--- bone
-fn b name parent_index tm1 tm2 tm3 tm4 tm5 tm6 tm7 tm8 tm9 tm10 tm11 tm12 = (
-	append importer.skeleton.bones (gbone name parent_index (matrix3 [tm1, tm2, tm3] [tm4, tm5, tm6] [tm7, tm8, tm9] [tm10, tm11, tm12]))
-)
 
 -- material
 fn mat name = (
@@ -410,11 +436,24 @@ fn tb name = (
 	importer.imp_mat.bump = name
 )
 
+-- model
+fn md name = (
+	importer.imp_model_id += 1
+	append importer.models (gmodel name (gskeleton #()) #())
+	importer.imp_model = importer.models[importer.imp_model_id]
+	importer.imp_mesh_id = 0
+)
+
+-- bone
+fn b name parent_index tm1 tm2 tm3 tm4 tm5 tm6 tm7 tm8 tm9 tm10 tm11 tm12 = (
+	append importer.imp_model.skeleton.bones (gbone name parent_index (matrix3 [tm1, tm2, tm3] [tm4, tm5, tm6] [tm7, tm8, tm9] [tm10, tm11, tm12]))
+)
+
 -- mesh
 fn m name = (
 	importer.imp_mesh_id += 1
-	append importer.meshes (gmesh name #() #() #() #()#())
-	importer.imp_mesh = importer.meshes[importer.imp_mesh_id]
+	append importer.imp_model.meshes (gmesh name #() #() #() #()#())
+	importer.imp_mesh = importer.imp_model.meshes[importer.imp_mesh_id]
 	importer.imp_vertex_id = 0
 	importer.imp_face_group_id = 0
 )
@@ -452,11 +491,11 @@ fn vw w1 w2 w3 w4 i1 i2 i3 i4 = (
 	importer.imp_vertex.bone_indices = #(i1, i2, i3, i4)
 )
 
--- face material
-fn fm i = (
+-- face group
+fn fg i = (
 	importer.imp_face_group_id += 1
-	append importer.imp_mesh.face_material_groups (gface_material_group i #())
-	importer.imp_faces = importer.imp_mesh.face_material_groups[importer.imp_face_group_id].faces
+	append importer.imp_mesh.face_group (gface_group i #())
+	importer.imp_faces = importer.imp_mesh.face_group[importer.imp_face_group_id].faces
 )
 
 -- face
@@ -466,15 +505,25 @@ fn f i1 i2 i3 = (
 
 -- animation
 fn a frame_count fps = (
-	importer.animation = (ganimation frame_count fps #())
+	importer.imp_anim_id += 1
+	append importer.animations (ganimation frame_count fps #())
+	importer.imp_anim = importer.animations[importer.imp_anim_id]
+	importer.imp_ctrl_group_id = 0
+)
+
+-- controller group
+fn cg name = (
+	importer.imp_ctrl_group_id += 1
+	append importer.imp_anim.controller_groups (gcontroller_group name #())
+	importer.imp_ctrl_group = importer.imp_anim.controller_groups[importer.imp_ctrl_group_id]
 	importer.imp_ctrl_id = 0
 )
 
--- animation controller
+-- controller
 fn c name = (
 	importer.imp_ctrl_id += 1
-	append importer.animation.controllers (gcontroller name #() #() #())
-	importer.imp_ctrl = importer.animation.controllers[importer.imp_ctrl_id]
+	append importer.imp_ctrl_group.controllers (gcontroller name #() #() #())
+	importer.imp_ctrl = importer.imp_ctrl_group.controllers[importer.imp_ctrl_id]
 )
 
 -- key position
