@@ -79,12 +79,16 @@ struct gkey (
 	value
 )
 
+-- global variables
+importer_title = "grnreaderX"
+importer_bone_size = 0.05
+
 struct gimporter (
 	-- import data
 	skeleton,
 	materials,
 	meshes,
-	animation,
+	animations,
 	
 	scene_skeleton,
 	scene_materials,
@@ -100,9 +104,6 @@ struct gimporter (
 	imp_face_id,
 	imp_ctrl_id,
 	imp_ctrl,
-	
-	imp_title,
-	bone_size,
 	
 	-- utility functions
 	fn find_bone name objs =
@@ -136,8 +137,8 @@ struct gimporter (
 		--fix negative scale
 		if result.scale[1] < -0.999999 and result.scale[2] < -0.999999 and result.scale[3] < -0.999999 then result.objectOffsetScale = [-1, -1, -1]
 		
-		result.width = bone_size
-		result.height = bone_size
+		result.width = importer_bone_size
+		result.height = importer_bone_size
 		
 		if b.parent_index > 0 then result.parent = scene_skeleton.bones[b.parent_index]
 		result
@@ -294,13 +295,8 @@ struct gimporter (
 			)		
 		)	
 	),
-	
-	fn init = (
-		imp_title = "grnreaderX"
-		bone_size = 0.05
-	),
-	
-	fn prepare_import = (
+
+	fn clean_up = (
 		skeleton = gskeleton #()
 		materials = #()
 		meshes = #()
@@ -310,6 +306,10 @@ struct gimporter (
 		
 		scene_skeleton = gskeleton #()
 		scene_materials = #()
+	),
+	
+	fn init = (
+		clean_up()
 	),
 	
 	fn import = (	
@@ -330,7 +330,7 @@ struct gimporter (
 
 			local mat_id = 0
 			local meditmat_id = 1
-			local material_added = 0
+			local mat_added = 0
 			for i = 1 to materials.count do
 			(
 				append scene_materials (create_material materials[i])
@@ -349,7 +349,7 @@ struct gimporter (
 								scene_materials[mat_id] = meditmaterials[m]
 								mmeditmat_id = m + 1
 								added = true
-								material_added += 1
+								mat_added += 1
 							)
 						)
 					)
@@ -357,18 +357,20 @@ struct gimporter (
 			)
 			if material_added < scene_materials.count then
 			(
-				messageBox ("Material Editor full: " + ((scene_materials.count - material_added) as string ) + " out of " + (scene_materials.count as string) + " materials of the import file cannot be added") title:imp_title 
+				messageBox ("Material Editor full: " + ((scene_materials.count - material_added) as string ) + " out of " + (scene_materials.count as string) + " materials of the import file cannot be added") title:importer_title 
 			)			
 			
-			for i = 1 to meshes.count do append group_objs (create_mesh meshes[i])
+			for m in meshes do append group_objs (create_mesh m)
 			
 			group group_objs
 			
-			if animation != undefined then create_animation animation
+			for a in animations do create_animation a
+
+			clean_up()
 		)
 		catch
 		(
-			messageBox "Import Failed!" title:imp_title
+			messageBox "Import Failed!" title:importer_title
 			ret = false
 		)
 	)
