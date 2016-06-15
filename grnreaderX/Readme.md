@@ -1,6 +1,7 @@
 New features from grnreader
 ----
 - importing bones
+- fixed faces
 - vertex weighing
 - loading animations
 
