@@ -167,6 +167,13 @@ void InverseMatrix(const float * data, float * invOut)
 		invOut[i] = inv[i] * det;
 }
 
+inline int GetTextureID(const t_FileInfo * info, const t_Texture * texture) {
+	for (int i = 0; i < info->Textures_count; ++i) {
+		if (texture == info->Textures[i])
+			return i;
+	}
+}
+
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine, int nCmdShow) {
 	if (__argc < 2)
@@ -246,6 +253,9 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		filename = filename.substr(filename.find_last_of('\\') + 1, filename.length());
 		ss << "\n\n--- " << filename.c_str() << " ---\n\n";
 
+		for (int i = 0; i < modelinfo->Textures_count; ++i)
+			ss << "t \"" << modelinfo->Textures[i]->FromFileName << "\"\n";
+
 		for (int i = 0; i < modelinfo->Materials_count; ++i) {
 			t_Material * material = modelinfo->Materials[i];
 			if (!material->Maps_count)
@@ -254,11 +264,11 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			for (int m = 0; m < material->Maps_count; ++m) {
 				t_Maps& map = material->Maps[m];
 				if (strcmp(map.Usage, "Diffuse Color") == 0)
-					ss << "td \"" << map.Map->Texture->FromFileName << "\"\n";
+					ss << "td " << GetTextureID(modelinfo, map.Map->Texture) + 1 << "\n";
 				else if (strcmp(map.Usage, "Opacity") == 0)
-					ss << "tp \"" << map.Map->Texture->FromFileName << "\"\n";
+					ss << "tp " << GetTextureID(modelinfo, map.Map->Texture) + 1 << "\n";
 				else if (strcmp(map.Usage, "Bump") == 0)
-					ss << "tb \"" << map.Map->Texture->FromFileName << "\"\n";
+					ss << "tb " << GetTextureID(modelinfo, map.Map->Texture) + 1 << "\n";
 			}
 		}
 
