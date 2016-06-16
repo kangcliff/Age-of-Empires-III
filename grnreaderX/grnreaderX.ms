@@ -62,9 +62,9 @@ struct gface_group (
 
 struct gmaterial (
 	name,
-	diffuse,
-	opacity,
-	bump
+	diffuse_id,
+	opacity_id,
+	bump_id
 )
 
 struct ganimation (
@@ -96,12 +96,14 @@ importer_bone_size = 0.05
 
 struct gimporter (
 	-- import data
+	textures,
 	materials,
 	models,
 	animations,
 	
-	scene_skeletons,
+	scene_textures,
 	scene_materials,
+	scene_skeletons,
 	
 	imp_mat_id,
 	imp_mat,
@@ -133,12 +135,17 @@ struct gimporter (
 	),
 	
 	-- scene creation functions
+	
+	fn create_texture t = (
+		bitmaptexture filename:t
+	),
+	
 	fn create_material m = (
 		local result = StandardMaterial()
 		result.name = m.name
-		if m.diffuse != undefined then result.diffuseMap = bitmaptexture filename: m.diffuse
-		if m.opacity != undefined then result.opacityMap = bitmaptexture filename: m.opacity
-		if m.bump != undefined then result.bumpMap = bitmaptexture filename: m.bump
+		if m.diffuse_id != undefined then result.diffuseMap = scene_textures[m.diffuse_id]
+		if m.opacity_id != undefined then result.opacityMap = scene_textures[m.opacity_id]
+		if m.bump_id != undefined then result.bumpMap = scene_textures[m.bump_id]
 		result
 	),
 	
@@ -220,10 +227,9 @@ struct gimporter (
 		local mod_skin = Skin()
 		addModifier result mod_skin
 		
-		for i in m.bones do
+		for b in m.bones do
 		(
-			local b = find_bone i scene_skeletons[si].bones
-			if b != undefined then skinOps.addBone mod_skin b 1
+			skinOps.addBone mod_skin (find_bone b scene_skeletons[si].bones) 1
 		)
 		disableSceneRedraw()
 		
@@ -284,6 +290,7 @@ struct gimporter (
 		for g in a.controller_groups do
 		(
 			local objs = objects
+			local msg
 			for m = 1 to models.count do 
 			(
 				if g.name == models[m].name then objs = scene_skeletons[m].bones
@@ -332,21 +339,30 @@ struct gimporter (
 							scale_key.value = k.value
 						)
 					)
-				)		
+				)
+				else
+				(
+					if msg == undefined then msg = "create_animation error - the following bones in controller group '" + g.name + "' cannot be found:\n\n"
+					msg += c.name
+					msg += "\n"
+				)
 			)
+			if msg != undefined then messageBox msg title:importer_title
 		)
 	),
 
 	fn clean_up = (
-		models = #()
+		textures = #()
 		materials = #()
+		models = #()
 		animations = #()
 		imp_model_id = 0
 		imp_mat_id = 0
 		imp_anim_id = 0
 		
-		scene_skeletons = #()
+		scene_textures = #()
 		scene_materials = #()
+		scene_skeletons = #()
 	),
 	
 	fn init = (
@@ -354,41 +370,77 @@ struct gimporter (
 	),
 	
 	fn import = (	
-		local ret = true
-		local group_objs = #()
-		
 		try
 		(
-			local mat_id = 0
-			local meditmat_id = 1
-			local mat_imported = 0
-			for i = 1 to materials.count do
+			local ret = true
+			local group_objs = #()
+			local ver = maxVersion()
+			
+			-- use slate material editor if available
+			local sme_avl = ver[1] >= 13000
+			
+			for t in textures do append scene_textures (create_texture t)
+			
+			if not sme_avl then
 			(
-				append scene_materials (create_material materials[i])
-				local imported = false
-				for m = meditmat_id to 24 do
+				local msg		
+				local mat_id = 0
+				local meditmat_id = 1
+				for i = 1 to materials.count do
 				(
-					if not imported then
+					append scene_materials (create_material materials[i])
+					local imported = false
+					for m = meditmat_id to 24 do
 					(
-						if classof meditmaterials[m] == StandardMaterial then
+						if not imported then
 						(
-							if meditmaterials[m].diffuseMap == undefined and meditmaterials[m].opacityMap == undefined and meditmaterials[m].bumpMap == undefined then
+							if classof meditmaterials[m] == StandardMaterial then
 							(
-								mat_id += 1
-								meditmaterials[m] = scene_materials[mat_id]
-								meditmaterials[m].showInViewport = on
-								scene_materials[mat_id] = meditmaterials[m]
-								mmeditmat_id = m + 1
-								imported = true
-								mat_imported += 1
+								if meditmaterials[m].diffuseMap == undefined and meditmaterials[m].opacityMap == undefined and meditmaterials[m].bumpMap == undefined then
+								(
+									mat_id += 1
+									meditmaterials[m] = scene_materials[mat_id]
+									meditmaterials[m].showInViewport = on
+									scene_materials[mat_id] = meditmaterials[m]
+									mmeditmat_id = m + 1
+									imported = true
+								)
 							)
 						)
 					)
+					if not imported then
+					(
+						if msg == undefined then msg = "import warning - the following materials cannot be imported because there are no remaining slots available in Material Editor:\n\n"
+						msg += materials[i].name
+						msg += "\n"
+					)
 				)
+				if msg != undefined then messageBox msg title:importer_title 
 			)
-			if mat_imported < scene_materials.count then
+			else
 			(
-				messageBox (((scene_materials.count - mat_imported) as string) + " materials cannot be imported to Material Editor") title:importer_title 
+				local view_name
+				local model_name = ""
+				local sme_view
+				local view_id = 1
+				
+				if models.count > 0 then model_name = " - " + models[1].name
+				
+				sme.Open()
+				view_name = "View" + (view_id as string) + model_name
+				while sme.GetViewByName view_name > 0 do
+				(
+					view_id += 1
+					view_name = "View" + (view_id as string) + model_name
+				)
+				
+				sme_view = sme.GetView (sme.CreateView view_name)
+				for i = 1 to materials.count do 
+				(
+					append scene_materials (create_material materials[i])
+					sme_view.createNode scene_materials[i] [0, 300 * (i - 1)]
+				)
+				sme.Close()
 			)
 			
 			for i = 1 to models.count do create_model i
@@ -399,7 +451,7 @@ struct gimporter (
 		)
 		catch
 		(
-			messageBox "Import Failed!" title:importer_title
+			messageBox "import failed - script file is corrupted." title:importer_title
 			ret = false
 		)
 	)
@@ -412,6 +464,11 @@ importer.init()
 
 -- file import function definitions
 
+-- texture
+fn t name = (
+	append importer.textures name
+)
+
 -- material
 fn mat name = (
 	importer.imp_mat_id += 1
@@ -420,18 +477,18 @@ fn mat name = (
 )
 
 -- diffuse texture
-fn td name = (
-	importer.imp_mat.diffuse = name
+fn td id = (
+	importer.imp_mat.diffuse_id = id
 )
 
 -- opacity texture
-fn tp name = (
-	importer.imp_mat.opacity = name
+fn tp id = (
+	importer.imp_mat.opacity_id = id
 )
 
 -- bump texture
-fn tb name = (
-	importer.imp_mat.bump = name
+fn tb id = (
+	importer.imp_mat.bump_id = id
 )
 
 -- model
