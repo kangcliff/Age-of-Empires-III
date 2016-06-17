@@ -381,66 +381,69 @@ struct gimporter (
 			
 			for t in textures do append scene_textures (create_texture t)
 			
-			if not sme_avl then
+			if materials.count > 0 then
 			(
-				local msg		
-				local mat_id = 0
-				local meditmat_id = 1
-				for i = 1 to materials.count do
+				if not sme_avl then
 				(
-					append scene_materials (create_material materials[i])
-					local imported = false
-					for m = meditmat_id to 24 do
+					local msg		
+					local mat_id = 0
+					local meditmat_id = 1
+					for i = 1 to materials.count do
 					(
-						if not imported then
+						append scene_materials (create_material materials[i])
+						local imported = false
+						for m = meditmat_id to 24 do
 						(
-							if classof meditmaterials[m] == StandardMaterial then
+							if not imported then
 							(
-								if meditmaterials[m].diffuseMap == undefined and meditmaterials[m].opacityMap == undefined and meditmaterials[m].bumpMap == undefined then
+								if classof meditmaterials[m] == StandardMaterial then
 								(
-									mat_id += 1
-									meditmaterials[m] = scene_materials[mat_id]
-									meditmaterials[m].showInViewport = on
-									scene_materials[mat_id] = meditmaterials[m]
-									mmeditmat_id = m + 1
-									imported = true
+									if meditmaterials[m].diffuseMap == undefined and meditmaterials[m].opacityMap == undefined and meditmaterials[m].bumpMap == undefined then
+									(
+										mat_id += 1
+										meditmaterials[m] = scene_materials[mat_id]
+										meditmaterials[m].showInViewport = on
+										scene_materials[mat_id] = meditmaterials[m]
+										mmeditmat_id = m + 1
+										imported = true
+									)
 								)
 							)
 						)
+						if not imported then
+						(
+							if msg == undefined then msg = "import warning - the following materials cannot be imported because there are no remaining slots available in Material Editor:\n\n"
+							msg += materials[i].name
+							msg += "\n"
+						)
 					)
-					if not imported then
-					(
-						if msg == undefined then msg = "import warning - the following materials cannot be imported because there are no remaining slots available in Material Editor:\n\n"
-						msg += materials[i].name
-						msg += "\n"
-					)
+					if msg != undefined then messageBox msg title:importer_title 
 				)
-				if msg != undefined then messageBox msg title:importer_title 
-			)
-			else
-			(
-				local view_name
-				local model_name = ""
-				local sme_view
-				local view_id = 1
-				
-				if models.count > 0 then model_name = " - " + models[1].name
-				
-				sme.Open()
-				view_name = "View" + (view_id as string) + model_name
-				while sme.GetViewByName view_name > 0 do
+				else
 				(
-					view_id += 1
+					local view_name
+					local model_name = ""
+					local sme_view
+					local view_id = 1
+					
+					if models.count > 0 then model_name = " - " + models[1].name
+					
+					sme.Open()
 					view_name = "View" + (view_id as string) + model_name
+					while sme.GetViewByName view_name > 0 do
+					(
+						view_id += 1
+						view_name = "View" + (view_id as string) + model_name
+					)
+					
+					sme_view = sme.GetView (sme.CreateView view_name)
+					for i = 1 to materials.count do 
+					(
+						append scene_materials (create_material materials[i])
+						sme_view.createNode scene_materials[i] [0, 300 * (i - 1)]
+					)
+					sme.Close()
 				)
-				
-				sme_view = sme.GetView (sme.CreateView view_name)
-				for i = 1 to materials.count do 
-				(
-					append scene_materials (create_material materials[i])
-					sme_view.createNode scene_materials[i] [0, 300 * (i - 1)]
-				)
-				sme.Close()
 			)
 			
 			for i = 1 to models.count do create_model i
