@@ -507,7 +507,7 @@ fn b name parent_index tm1 tm2 tm3 tm4 tm5 tm6 tm7 tm8 tm9 tm10 tm11 tm12 = (
 -- mesh
 fn m name = (
 	importer.imp_mesh_id += 1
-	append importer.imp_model.meshes (gmesh name #() #() #() #()#())
+	append importer.imp_model.meshes (gmesh name #() #() #() #())
 	importer.imp_mesh = importer.imp_model.meshes[importer.imp_mesh_id]
 	importer.imp_vertex_id = 0
 	importer.imp_face_group_id = 0
