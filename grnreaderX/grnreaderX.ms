@@ -91,8 +91,11 @@ struct gkey (
 )
 
 -- global variables
-importer_title = "grnreaderX"
-importer_bone_size = 0.05
+gx_title = "grnreaderX"
+if gx_reselect_textures == undefined then gx_reselect_textures = false
+if gx_bone_size == undefined then gx_bone_size = [0.05, 0.05]
+if gx_slider_time == undefined then gx_slider_time = false
+gx_plugin_mode = doesFileExist ((getDir #startupScripts) + "\\grnreaderX.ms")
 
 struct gimporter (
 	-- import data
@@ -127,10 +130,7 @@ struct gimporter (
 	fn find_bone name objs =
 	(
 		local result
-		for b in objs where (classof b == BoneGeometry or classof b == Point or classof b == Biped_Object or classof b == Dummy) and b.name == name do
-		(
-			result = b
-		)
+		for b in objs where (classof b == BoneGeometry or classof b == Point or classof b == Biped_Object or classof b == Dummy) and stricmp b.name name == 0 do result = b
 		result
 	),
 	
@@ -169,8 +169,8 @@ struct gimporter (
 		--fix negative scale
 		if result.scale[1] < -0.999999 and result.scale[2] < -0.999999 and result.scale[3] < -0.999999 then result.objectOffsetScale = [-1, -1, -1]
 		
-		result.width = importer_bone_size
-		result.height = importer_bone_size
+		result.width = gx_bone_size.x
+		result.height = gx_bone_size.y
 		
 		if b.parent_index > 0 then result.parent = scene_skeletons[si].bones[b.parent_index]
 		result
@@ -227,10 +227,8 @@ struct gimporter (
 		local mod_skin = Skin()
 		addModifier result mod_skin
 		
-		for b in m.bones do
-		(
-			skinOps.addBone mod_skin (find_bone b scene_skeletons[si].bones) 1
-		)
+		for b in m.bones do skinOps.addBone mod_skin (find_bone b scene_skeletons[si].bones) 1
+		
 		disableSceneRedraw()
 		
 		if m.vertices[1].weights != undefined then
@@ -285,15 +283,22 @@ struct gimporter (
 	),
 	
 	fn create_animation a = (
+		local start = 0f
+		local end = a.frame_count as time
 		frameRate = a.fps
-		animationRange = interval 0f a.frame_count
+		if gx_slider_time then
+		(
+			start = sliderTime
+			end += sliderTime
+		)
+		animationRange = interval 0f end
 		for g in a.controller_groups do
 		(
 			local objs = objects
 			local msg
 			for m = 1 to models.count do 
 			(
-				if g.name == models[m].name then objs = scene_skeletons[m].bones
+				if stricmp g.name models[m].name == 0 then objs = scene_skeletons[m].bones
 			)
 			for c in g.controllers do
 			(
@@ -307,7 +312,7 @@ struct gimporter (
 						
 						for k in c.position_keys do
 						(
-							local pos_key = addNewKey pos_ctrl k.frame
+							local pos_key = addNewKey pos_ctrl (start + k.frame)
 							pos_key.inTangentType = #slow
 							pos_key.outTangentType = #slow
 							pos_key.value = k.value
@@ -321,7 +326,7 @@ struct gimporter (
 						
 						for k in c.rotation_keys do
 						(
-							local rot_key = addNewKey rot_ctrl k.frame
+							local rot_key = addNewKey rot_ctrl (start + k.frame)
 							rot_key.value = k.value
 						)
 					)
@@ -333,7 +338,7 @@ struct gimporter (
 						
 						for k in c.scale_keys do
 						(
-							local scale_key = addNewKey scale_ctrl k.frame
+							local scale_key = addNewKey scale_ctrl (start + k.frame)
 							scale_key.inTangentType = #slow
 							scale_key.outTangentType = #slow					
 							scale_key.value = k.value
@@ -347,7 +352,7 @@ struct gimporter (
 					msg += "\n"
 				)
 			)
-			if msg != undefined then messageBox msg title:importer_title
+			if msg != undefined then messageBox msg title:gx_title
 		)
 	),
 
@@ -356,13 +361,23 @@ struct gimporter (
 		materials = #()
 		models = #()
 		animations = #()
-		imp_model_id = 0
-		imp_mat_id = 0
-		imp_anim_id = 0
 		
 		scene_textures = #()
 		scene_materials = #()
 		scene_skeletons = #()
+		
+		imp_mat_id = 0
+		imp_model_id = 0
+		imp_anim_id = 0
+		
+		imp_mat = undefined
+		imp_model = undefined
+		imp_mesh = undefined
+		imp_vertex = undefined
+		imp_faces = undefined
+		imp_anim = undefined
+		imp_ctrl_group = undefined
+		imp_ctrl = undefined
 	),
 	
 	fn init = (
@@ -372,12 +387,20 @@ struct gimporter (
 	fn import = (	
 		try
 		(
-			local ret = true
 			local group_objs = #()
 			local ver = maxVersion()
 			
 			-- use slate material editor if available
 			local sme_avl = ver[1] >= 13000
+			
+			if gx_reselect_textures then
+			(
+				for t = 1 to textures.count do
+				(
+					local file = getOpenFileName filename:textures[t] types:"Targa image file(*.tga)|*.tga|Adobe psd reader(*.psd)|*.psd|"
+					if file != undefined then textures[t] = file
+				)
+			)
 			
 			for t in textures do append scene_textures (create_texture t)
 			
@@ -417,7 +440,7 @@ struct gimporter (
 							msg += "\n"
 						)
 					)
-					if msg != undefined then messageBox msg title:importer_title 
+					if msg != undefined then messageBox msg title:gx_title 
 				)
 				else
 				(
@@ -441,6 +464,7 @@ struct gimporter (
 					(
 						append scene_materials (create_material materials[i])
 						sme_view.createNode scene_materials[i] [0, 300 * (i - 1)]
+						scene_materials[i].showInViewport = on
 					)
 					sme.Close()
 				)
@@ -454,147 +478,260 @@ struct gimporter (
 		)
 		catch
 		(
-			messageBox "import failed - script file is corrupted." title:importer_title
-			ret = false
+			messageBox "import failed - script file is corrupted." title:gx_title
 		)
 	)
 	
 )
 
 --- importer initialization ---
-importer = gimporter()
-importer.init()
+gx_importer = gimporter()
+gx_importer.init()
 
 -- file import function definitions
 
 -- texture
 fn t name = (
-	append importer.textures name
+	append gx_importer.textures name
 )
 
 -- material
 fn mat name = (
-	importer.imp_mat_id += 1
-	append importer.materials (gmaterial name)
-	importer.imp_mat = importer.materials[importer.imp_mat_id]
+	gx_importer.imp_mat_id += 1
+	append gx_importer.materials (gmaterial name)
+	gx_importer.imp_mat = gx_importer.materials[gx_importer.imp_mat_id]
 )
 
 -- diffuse texture
 fn td id = (
-	importer.imp_mat.diffuse_id = id
+	gx_importer.imp_mat.diffuse_id = id
 )
 
 -- opacity texture
 fn tp id = (
-	importer.imp_mat.opacity_id = id
+	gx_importer.imp_mat.opacity_id = id
 )
 
 -- bump texture
 fn tb id = (
-	importer.imp_mat.bump_id = id
+	gx_importer.imp_mat.bump_id = id
 )
 
 -- model
 fn md name = (
-	importer.imp_model_id += 1
-	append importer.models (gmodel name (gskeleton #()) #())
-	importer.imp_model = importer.models[importer.imp_model_id]
-	importer.imp_mesh_id = 0
+	gx_importer.imp_model_id += 1
+	append gx_importer.models (gmodel name (gskeleton #()) #())
+	gx_importer.imp_model = gx_importer.models[gx_importer.imp_model_id]
+	gx_importer.imp_mesh_id = 0
 )
 
 -- bone
 fn b name parent_index tm1 tm2 tm3 tm4 tm5 tm6 tm7 tm8 tm9 tm10 tm11 tm12 = (
-	append importer.imp_model.skeleton.bones (gbone name parent_index (matrix3 [tm1, tm2, tm3] [tm4, tm5, tm6] [tm7, tm8, tm9] [tm10, tm11, tm12]))
+	append gx_importer.imp_model.skeleton.bones (gbone name parent_index (matrix3 [tm1, tm2, tm3] [tm4, tm5, tm6] [tm7, tm8, tm9] [tm10, tm11, tm12]))
 )
 
 -- mesh
 fn m name = (
-	importer.imp_mesh_id += 1
-	append importer.imp_model.meshes (gmesh name #() #() #() #())
-	importer.imp_mesh = importer.imp_model.meshes[importer.imp_mesh_id]
-	importer.imp_vertex_id = 0
-	importer.imp_face_group_id = 0
+	gx_importer.imp_mesh_id += 1
+	append gx_importer.imp_model.meshes (gmesh name #() #() #() #())
+	gx_importer.imp_mesh = gx_importer.imp_model.meshes[gx_importer.imp_mesh_id]
+	gx_importer.imp_vertex_id = 0
+	gx_importer.imp_face_group_id = 0
 )
 
 -- mesh bone
 fn mb name = (
-	append importer.imp_mesh.bones name
+	append gx_importer.imp_mesh.bones name
 )
 
 -- mesh material 
 fn mm i = (
-	append importer.imp_mesh.material_indices i
+	append gx_importer.imp_mesh.material_indices i
 )
 
 -- vertex position
 fn v x y z = (
-	importer.imp_vertex_id += 1
-	append importer.imp_mesh.vertices (gvertex [x,y,z])
-	importer.imp_vertex = importer.imp_mesh.vertices[importer.imp_vertex_id]
+	gx_importer.imp_vertex_id += 1
+	append gx_importer.imp_mesh.vertices (gvertex [x,y,z])
+	gx_importer.imp_vertex = gx_importer.imp_mesh.vertices[gx_importer.imp_vertex_id]
 )
 
 -- vertex normal
 fn vn x y z = (
-	importer.imp_vertex.normal = [x,y,z]
+	gx_importer.imp_vertex.normal = [x,y,z]
 )
 
 -- vertex uv
 fn vt x y = (
-	importer.imp_vertex.uv = [x,y]
+	gx_importer.imp_vertex.uv = [x,y]
 )
 
 -- vertex weights
 fn vw w1 w2 w3 w4 i1 i2 i3 i4 = (
-	importer.imp_vertex.weights = #(w1, w2, w3, w4)
-	importer.imp_vertex.bone_indices = #(i1, i2, i3, i4)
+	gx_importer.imp_vertex.weights = #(w1, w2, w3, w4)
+	gx_importer.imp_vertex.bone_indices = #(i1, i2, i3, i4)
 )
 
 -- face group
 fn fg i = (
-	importer.imp_face_group_id += 1
-	append importer.imp_mesh.face_groups (gface_group i #())
-	importer.imp_faces = importer.imp_mesh.face_groups[importer.imp_face_group_id].faces
+	gx_importer.imp_face_group_id += 1
+	append gx_importer.imp_mesh.face_groups (gface_group i #())
+	gx_importer.imp_faces = gx_importer.imp_mesh.face_groups[gx_importer.imp_face_group_id].faces
 )
 
 -- face
 fn f i1 i2 i3 = (
-	append importer.imp_faces [i1, i2, i3]
+	append gx_importer.imp_faces [i1, i2, i3]
 )
 
 -- animation
 fn a frame_count fps = (
-	importer.imp_anim_id += 1
-	append importer.animations (ganimation frame_count fps #())
-	importer.imp_anim = importer.animations[importer.imp_anim_id]
-	importer.imp_ctrl_group_id = 0
+	gx_importer.imp_anim_id += 1
+	append gx_importer.animations (ganimation frame_count fps #())
+	gx_importer.imp_anim = gx_importer.animations[gx_importer.imp_anim_id]
+	gx_importer.imp_ctrl_group_id = 0
 )
 
 -- controller group
 fn cg name = (
-	importer.imp_ctrl_group_id += 1
-	append importer.imp_anim.controller_groups (gcontroller_group name #())
-	importer.imp_ctrl_group = importer.imp_anim.controller_groups[importer.imp_ctrl_group_id]
-	importer.imp_ctrl_id = 0
+	gx_importer.imp_ctrl_group_id += 1
+	append gx_importer.imp_anim.controller_groups (gcontroller_group name #())
+	gx_importer.imp_ctrl_group = gx_importer.imp_anim.controller_groups[gx_importer.imp_ctrl_group_id]
+	gx_importer.imp_ctrl_id = 0
 )
 
 -- controller
 fn c name = (
-	importer.imp_ctrl_id += 1
-	append importer.imp_ctrl_group.controllers (gcontroller name #() #() #())
-	importer.imp_ctrl = importer.imp_ctrl_group.controllers[importer.imp_ctrl_id]
+	gx_importer.imp_ctrl_id += 1
+	append gx_importer.imp_ctrl_group.controllers (gcontroller name #() #() #())
+	gx_importer.imp_ctrl = gx_importer.imp_ctrl_group.controllers[gx_importer.imp_ctrl_id]
 )
 
 -- key position
 fn kp i x y z = (
-	append importer.imp_ctrl.position_keys (gkey i [x,y,z])
+	append gx_importer.imp_ctrl.position_keys (gkey i [x,y,z])
 )
 
 -- key rotation
 fn kr i x y z w = (
-	append importer.imp_ctrl.rotation_keys (gkey i (quat x y z w))
+	append gx_importer.imp_ctrl.rotation_keys (gkey i (quat x y z w))
 )
 
 -- key scale
 fn ks i x y z = (
-	append importer.imp_ctrl.scale_keys (gkey i [x,y,z])
+	append gx_importer.imp_ctrl.scale_keys (gkey i [x,y,z])
+)
+
+-- importer utility
+utility gx_importer_utility "grnreaderX"
+(
+	local exe = getINISetting ((getDir #plugcfg) + "\\grnreaderX.ini") "grnreaderX" "path"
+	
+	rollout gx_importer_ui "grnreaderX"
+	(
+		checkbox cb_reselect_textures "Re-select textures" checked:gx_reselect_textures
+		spinner s_bone_width "Bone Width:" range:[gx_bone_size.x, 10000, 0.01] align:#left
+		spinner s_bone_height "Bone Height:" range:[gx_bone_size.y, 10000, 0.01] align:#left
+		checkbox cb_slider_time "Start from slider" checked:gx_slider_time
+		local files = #()
+		local items = #()
+		group "Files:"
+		(
+			listbox lb_files ""
+			button btn_add "Add" width:60 across:2
+			button btn_remove "Remove" width:60
+		)
+		button btn_import "Import" width:60
+		button btn_setup "Setup" width:60
+		
+		on cb_reselect_textures changed stat do gx_reselect_textures = stat
+		
+		on s_bone_width changed val do gx_bone_size.x = val
+		
+		on s_bone_height changed val do gx_bone_size.y = val
+		
+		on cb_slider_time changed stat do gx_slider_time = stat
+		
+		on btn_add pressed do
+		(
+			local file = getOpenFileName types:"Granny Runtime 2 File (*.gr2)|*.gr2|"
+			if file != undefined then
+			(
+				append files file
+				append items (filenameFromPath file)
+				lb_files.items = items
+				lb_files.selection = items.count
+			)
+		)
+		
+		on btn_remove pressed do
+		(
+			if lb_files.selection > 0 then
+			(
+				local i = lb_files.selection
+				deleteItem files i
+				deleteItem items i
+				lb_files.items = items
+			)
+		)
+		
+		on btn_import pressed do
+		(
+			if files.count > 0 then
+			(
+				local command = "\" \"" + exe + "\" \"-d\""
+				local ver = maxVersion()
+				local ret
+				
+				for f in files do command += " \"" + f + "\""
+				command += " \""
+				
+				if ver[1] >= 12000 then HiddenDOSCommand command ExitCode:&ret
+				else ret = DOSCommand command
+				
+				if ret == 0 then
+				(
+					local script = (getFilenamePath files[1]) + (getFilenameFile files[1]) + ".ms"
+					try
+					(
+						filein script
+					)
+					catch
+					(
+						messageBox "import failed: script file corrupted." title:gx_title
+					)
+					deleteFile script
+					gx_importer.import()
+		
+					files = #()
+					items = #()
+					lb_files.items = #()
+				)
+				else messageBox "import failed: cannot execute external command." title:gx_title
+			)
+		)
+		
+		on btn_setup pressed do
+		(
+			local file = getOpenFileName caption:"Locate 'grnreaderX.exe'" types:"Executeable file(*.exe)|*.exe|"
+			if file != undefined then
+			(
+				if not (setINISetting ((getDir #plugcfg) + "\\grnreaderX.ini") "grnreaderX" "path" file) then
+				(
+					messageBox "plugin setup: unable to save plugin settings." title:gx_title
+				)
+				else exe = file
+			)			
+		)
+	)
+	
+	on gx_importer_utility open do
+	(
+		if gx_plugin_mode then addRollout gx_importer_ui
+	)
+	
+	on gx_importer_utility close do
+	(
+		if gx_plugin_mode then removeRollout gx_importer_ui
+	)
 )
