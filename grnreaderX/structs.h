@@ -1,3 +1,30 @@
+#ifndef _STRUCTS_H
+#define _STRUCTS_H
+
+typedef char granny_int8;
+typedef unsigned char granny_uint8;
+typedef short granny_int16;
+typedef unsigned short granny_uint16;
+typedef int granny_int32;
+typedef unsigned int granny_uint32;
+typedef float granny_real32;
+
+struct granny_transform {
+	granny_uint32 Dimensions;
+	granny_real32 Origin[3];
+	granny_real32 Rotation[4];
+	granny_real32 Scale[3][3];
+};
+
+struct t_Type
+{
+	granny_int32 Type;
+	char * Name;
+	void * StructOffset;
+	int Count;
+	int x[4];
+};
+
 struct t_ExtendedData;
 
 struct t_FileInfo;
@@ -396,3 +423,4 @@ struct t_TransformTracks {
 	t_ScaleShearCurve ScaleShearCurve;
 };
 
+#endif
